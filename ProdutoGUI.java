@@ -1,185 +1,217 @@
 import javafx.application.Application;
 import javafx.geometry.Insets;
+import javafx.geometry.Pos;
 import javafx.scene.Scene;
 import javafx.scene.control.*;
-import javafx.scene.layout.HBox;
-import javafx.scene.layout.VBox;
+import javafx.scene.layout.*;
 import javafx.stage.Stage;
 import javafx.collections.FXCollections;
 import javafx.collections.ObservableList;
 import javafx.scene.control.cell.PropertyValueFactory;
 
-import java.util.List;
 import java.sql.Connection;
 import java.sql.SQLException;
+import java.util.List;
 
 public class ProdutoGUI extends Application {
+
     private ProdutoDAO produtoDAO;
-    private  ObservableList<Produto> produtos;
+    private ObservableList<Produto> produtos;
     private TableView<Produto> tableView;
-    private  TextField nomeInput, quantidadeInput, precoInput;
+    private TextField nomeInput, quantidadeInput, precoInput;
     private ComboBox<String> statusComboBox;
     private Connection conexaoDB;
 
-    public static void main (String [] args){
+    public static void main(String[] args) {
         launch(args);
     }
 
     @Override
-    public void start (Stage palco) {
+    public void start(Stage palco) {
+
         conexaoDB = ConexaoDB.conectar();
-        produtoDAO = new ProdutoDAO(conexaoDB); //Inicializa o DAO
-        produtos = FXCollections.observableArrayList(produtoDAO.listarTodos()); //Carrega todos os produtos do banco de dados
+        produtoDAO = new ProdutoDAO(conexaoDB);
+        produtos = FXCollections.observableArrayList(produtoDAO.listarTodos());
 
         palco.setTitle("Gerenciamento de Estoque de Produtos");
 
-        //VBOX
-        VBox vbox = new VBox();
-        vbox.setPadding(new Insets(10, 10, 10, 10));
-        vbox.setSpacing(10);
-        
-        //HBOX
-        HBox nomeProdutoHbox = new HBox();
-        nomeProdutoHbox.setSpacing(10);
-        Label nomeLabel = new Label("Produto: ");
-        nomeInput = new TextField();
-        nomeProdutoHbox.getChildren().addAll(nomeLabel, nomeInput);
-        //HBOX
-        HBox quantidadeHbox = new HBox();
-        quantidadeHbox.setSpacing(10);
-        Label quantidadLabel = new Label("Quantidade: ");
-        quantidadeInput = new TextField();
-        quantidadeHbox.getChildren().addAll(quantidadLabel, quantidadeInput);
-        //HBOX
-        HBox precoHbox = new HBox();
-        precoHbox.setSpacing(10);
-        Label precoLabel = new Label("Preço: ");
-        precoInput = new TextField();
-        precoHbox.getChildren().addAll(precoLabel, precoInput);
-        //HBOX
-        HBox statusBox = new HBox();
-        statusBox.setSpacing(10);
-        Label statusLabel = new Label("Status: ");
+        /* ===== FORMULÁRIO ===== */
+
+        VBox vbox = new VBox(10);
+        vbox.setPadding(new Insets(10));
+
+        HBox nomeBox = criarCampo("Produto:", nomeInput = new TextField());
+        HBox quantidadeBox = criarCampo("Quantidade:", quantidadeInput = new TextField());
+        HBox precoBox = criarCampo("Preço:", precoInput = new TextField());
+
         statusComboBox = new ComboBox<>();
-        statusComboBox.getItems().addAll("Estoque Alto",
-        "Estoque Normal", "Estoque Baixo");
-        statusBox.getChildren().addAll(statusLabel, statusComboBox);
+        statusComboBox.getItems().addAll(
+                "Estoque Alto",
+                "Estoque Normal",
+                "Estoque Baixo"
+        );
 
-        //BOTÂO Adicionar
+        HBox statusBox = new HBox(10, new Label("Status:"), statusComboBox);
+        statusBox.setAlignment(Pos.CENTER_LEFT);
+
+        /* ===== BOTÕES ===== */
+
         Button addButton = new Button("Adicionar");
-        addButton.setOnAction(e ->{
-            String preco = precoInput.getText().replace(',', '.'); //Substitui vírugla por ponto no preço
-            Produto produto = new Produto(nomeInput.getText(),
-               Integer.parseInt(quantidadeInput.getText()),
-                 Double.parseDouble(preco),
-                    statusComboBox.getValue());
-                produtoDAO.inserir(produto); //Insere o novo produto no banco de dados
-                produtos.setAll(produtoDAO.listarTodos());
-                limparCampos(); //Limpa os campos de entrada para uma nova digitação
-        });
-
-        //BOTÂO Atualizar
         Button updateButton = new Button("Atualizar");
-        updateButton.setOnAction(e->{
-                Produto selectedProduto = tableView.getSelectionModel().getSelectedItem(); //Obtém o produto selecionado
-                if (selectedProduto != null){
-                    String preco = precoInput.getText().replace(',', '.'); //Substitui vírugla por ponto no preço
-                    selectedProduto.setNome(nomeInput.getText());
-                    selectedProduto.setQuantidade(Integer.parseInt(quantidadeInput.getText()));
-                    selectedProduto.setPreco(Double.parseDouble(preco));
-                    selectedProduto.setStatus(statusComboBox.getValue());
-                    produtoDAO.atualizar(selectedProduto); //Atualiza o produto no banco de dados
-                    produtos.setAll(produtoDAO.listarTodos());
-                    limparCampos(); //Limpar campos de entradas
-                }
-        });
-
-        //BOTÂO Excluir
         Button deleteButton = new Button("Excluir");
-        deleteButton.setOnAction(e-> {
-            Produto selectedProduto = tableView.getSelectionModel().getSelectedItem(); //Obtém o produto selecionado
-            if (selectedProduto != null){
-                produtoDAO.excluir(selectedProduto.getId()); //Exclui o produto do banco de dados
-                produtos.setAll(produtoDAO.listarTodos()); //Atualiza a lista de produtos
-                limparCampos();  //Limpar campos de entradas
+        Button clearButton = new Button("Limpar");
+        Button deleteAllButton = new Button("Excluir tudo");
+
+        HBox buttonBox = new HBox(10,
+                addButton, updateButton, clearButton, deleteButton, deleteAllButton
+        );
+
+        /* ===== TABLE VIEW ===== */
+
+        tableView = new TableView<>();
+        tableView.setItems(produtos);
+        tableView.setColumnResizePolicy(TableView.CONSTRAINED_RESIZE_POLICY_ALL_COLUMNS);
+
+        tableView.getColumns().addAll(List.of(
+                criarColuna("ID", "id"),
+                criarColuna("Produto", "nome"),
+                criarColuna("Quantidade", "quantidade"),
+                criarColuna("Preço", "preco"),
+                criarColuna("Status", "status")
+        ));
+
+        VBox.setVgrow(tableView, Priority.ALWAYS);
+
+        /* ===== EVENTOS ===== */
+
+        addButton.setOnAction(e -> adicionarProduto());
+        updateButton.setOnAction(e -> atualizarProduto());
+        deleteButton.setOnAction(e -> excluirProduto());
+        deleteAllButton.setOnAction(e -> excluirTodos());
+        clearButton.setOnAction(e -> limparCampos());
+
+        tableView.getSelectionModel().selectedItemProperty().addListener((obs, o, n) -> {
+            if (n != null) {
+                nomeInput.setText(n.getNome());
+                quantidadeInput.setText(String.valueOf(n.getQuantidade()));
+                precoInput.setText(String.valueOf(n.getPreco()));
+                statusComboBox.setValue(n.getStatus());
             }
         });
 
-        //BOTÂO Limpar
-        Button clearButton = new Button ("Limpar");
-        clearButton.setOnAction(e-> limparCampos());
-
-        //BOTÃO Excluir tudo
-        Button deleteAllButton = new Button("Excluir tudo");
-        deleteAllButton.setOnAction(e-> {
-            produtoDAO.excluirTodos();
-            produtos.setAll(produtoDAO.listarTodos());
-            limparCampos();
-        });
-
-        tableView = new TableView<>();
-        tableView.setItems(produtos); //Define a lista de produtos na tabela
-        tableView.setColumnResizePolicy(TableView.CONSTRAINED_RESIZE_POLICY_ALL_COLUMNS); //Ajusta o tamanho das colunas
-        List<TableColumn<Produto, ?>> columns = List.of(
-            criarColuna("ID", "id"),
-            criarColuna("Produto", "nome"),
-            criarColuna("Quantidade", "quantidade"),
-            criarColuna("Preço", "preco"),
-            criarColuna("Status", "status")
+        vbox.getChildren().addAll(
+                nomeBox, quantidadeBox, precoBox, statusBox, buttonBox, tableView
         );
-        tableView.getColumns().addAll(columns);
 
-        tableView.getSelectionModel().selectedItemProperty().addListener((obs, oldSelection, newSelection) -> {
-                if(newSelection != null) {
-                    nomeInput.setText(newSelection.getNome());
-                    quantidadeInput.setText(String.valueOf(newSelection.getQuantidade()));
-                    precoInput.setText(String.valueOf(newSelection.getPreco()));
-                    statusComboBox.setValue(newSelection.getStatus());
-                } 
-        });
+        BorderPane root = new BorderPane(vbox);
+        Scene cena = new Scene(root, 800, 600);
+        cena.getStylesheets().add("styles-produtos.css");
 
-        HBox buttonBox = new HBox();
-        buttonBox.setSpacing(10);
-        buttonBox.getChildren().addAll(addButton, updateButton,  clearButton, deleteButton, deleteAllButton); //Adiciona o botão limpar ao hbox
-
-        vbox.getChildren().addAll(nomeProdutoHbox, quantidadeHbox, precoHbox, statusBox, buttonBox, tableView);
-
-        Scene cena = new Scene (vbox, 800, 600);
-        cena.getStylesheets().add("styles-produtos.css"); //Adiciona folha de estilos
         palco.setScene(cena);
         palco.show();
     }
 
-    /*Metodo stop é chamado automaticamente a aplicação javaFX é ENCERRADA.*/
-    @Override
-    public void stop(){
-        try {
-            conexaoDB.close();
-        } catch (SQLException e) {
-            System.err.println("Erro ao fechar conexão: " + e.getMessage());
-        }
-    }
-    
-    /* Metodo de limpar o campo na entrada do form
-    Este metodo e chamado apos adicionar atualizar ou excluir o produto
-    para garantir que os campos de entrada estejam prontos para uma nova entrada */
+    /* ===== MÉTODOS CRUD ===== */
 
-    private void limparCampos(){
+    private void adicionarProduto() {
+        if (!validarCampos()) return;
+
+        Produto produto = criarProduto();
+        produtoDAO.inserir(produto);
+        atualizarTabela();
+        limparCampos();
+    }
+
+    private void atualizarProduto() {
+        Produto selecionado = tableView.getSelectionModel().getSelectedItem();
+        if (selecionado == null || !validarCampos()) return;
+
+        Produto novo = criarProduto();
+        selecionado.setNome(novo.getNome());
+        selecionado.setQuantidade(novo.getQuantidade());
+        selecionado.setPreco(novo.getPreco());
+        selecionado.setStatus(novo.getStatus());
+
+        produtoDAO.atualizar(selecionado);
+        atualizarTabela();
+        limparCampos();
+    }
+
+    private void excluirProduto() {
+        Produto selecionado = tableView.getSelectionModel().getSelectedItem();
+        if (selecionado == null) return;
+
+        produtoDAO.excluir(selecionado.getId());
+        atualizarTabela();
+        limparCampos();
+    }
+
+    private void excluirTodos() {
+        produtoDAO.excluirTodos();
+        atualizarTabela();
+        limparCampos();
+    }
+
+    /* ===== UTILITÁRIOS ===== */
+
+    private Produto criarProduto() {
+        double preco = Double.parseDouble(precoInput.getText().replace(',', '.'));
+        return new Produto(
+                nomeInput.getText(),
+                Integer.parseInt(quantidadeInput.getText()),
+                preco,
+                statusComboBox.getValue()
+        );
+    }
+
+    private void atualizarTabela() {
+        produtos.setAll(produtoDAO.listarTodos());
+    }
+
+    private boolean validarCampos() {
+        if (nomeInput.getText().isEmpty() ||
+                quantidadeInput.getText().isEmpty() ||
+                precoInput.getText().isEmpty() ||
+                statusComboBox.getValue() == null) {
+
+            Alert alert = new Alert(Alert.AlertType.ERROR);
+            alert.setTitle("Erro");
+            alert.setHeaderText(null);
+            alert.setContentText("Preencha todos os campos!");
+            alert.showAndWait();
+            return false;
+        }
+        return true;
+    }
+
+    private void limparCampos() {
         nomeInput.clear();
         quantidadeInput.clear();
         precoInput.clear();
         statusComboBox.setValue(null);
+        tableView.getSelectionModel().clearSelection();
     }
 
-    /* Metodo criar coluna
-    Cria uma coluna para o TableView
-    @param title o titulo da coluna sera exibido no cabeçalho
-    @param property A propriedade do objeto Produto que esta oluna deve exibir
-    @return A coluna configurada para a tableView */
+    private HBox criarCampo(String label, TextField campo) {
+        HBox box = new HBox(10, new Label(label), campo);
+        box.setAlignment(Pos.CENTER_LEFT);
+        return box;
+    }
 
-    private TableColumn<Produto, String> criarColuna(String title, String property) {
-        TableColumn<Produto, String> col = new TableColumn<>(title);
-        col.setCellValueFactory(new PropertyValueFactory<>(property)); //Define a propriedade da coluna
+    private TableColumn<Produto, String> criarColuna(String titulo, String propriedade) {
+        TableColumn<Produto, String> col = new TableColumn<>(titulo);
+        col.setCellValueFactory(new PropertyValueFactory<>(propriedade));
         return col;
+    }
+
+    @Override
+    public void stop() {
+        try {
+            if (conexaoDB != null && !conexaoDB.isClosed()) {
+                conexaoDB.close();
+            }
+        } catch (SQLException e) {
+            System.err.println("Erro ao fechar conexão: " + e.getMessage());
+        }
     }
 }
